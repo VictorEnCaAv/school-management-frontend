@@ -1,5 +1,6 @@
-import api from './api';
-import { Calificacion, CalificacionForm, ApiResponse, PaginatedResponse } from '@/types';
+// ✅ CORRECTO
+import api from './api.ts';  // Cliente Axios
+import type { ... } from '../types/index';  // Tipos TypeScript
 
 interface FiltrosCalificacion {
   materia_id?: number;
