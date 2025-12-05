@@ -1,6 +1,5 @@
-// ✅ CORRECTO
-import api from './api.ts';  // Cliente Axios
-import type { ... } from '../types/index';  // Tipos TypeScript
+import api from './api';
+import type { Calificacion, CalificacionForm, ApiResponse, PaginatedResponse } from '../types/index';
 
 interface FiltrosCalificacion {
   materia_id?: number;
@@ -27,7 +26,7 @@ export const calificacionService = {
     }
     
     const response = await api.get<PaginatedResponse<Calificacion>>(
-      `/calificaciones?${params.toString()}`
+      `/maestro/calificaciones?${params.toString()}`
     );
     return response.data;
   },
@@ -36,7 +35,7 @@ export const calificacionService = {
    * Obtener una calificación por ID
    */
   async obtenerCalificacionPorId(id: number): Promise<ApiResponse<Calificacion>> {
-    const response = await api.get<ApiResponse<Calificacion>>(`/calificaciones/${id}`);
+    const response = await api.get<ApiResponse<Calificacion>>(`/maestro/calificaciones/${id}`);
     return response.data;
   },
 
@@ -44,7 +43,7 @@ export const calificacionService = {
    * Crear nueva calificación
    */
   async crearCalificacion(data: CalificacionForm): Promise<ApiResponse<Calificacion>> {
-    const response = await api.post<ApiResponse<Calificacion>>('/calificaciones', data);
+    const response = await api.post<ApiResponse<Calificacion>>('/maestro/calificaciones', data);
     return response.data;
   },
 
@@ -55,15 +54,15 @@ export const calificacionService = {
     id: number,
     data: Partial<CalificacionForm>
   ): Promise<ApiResponse<Calificacion>> {
-    const response = await api.put<ApiResponse<Calificacion>>(`/calificaciones/${id}`, data);
+    const response = await api.put<ApiResponse<Calificacion>>(`/maestro/calificaciones/${id}`, data);
     return response.data;
   },
 
   /**
-   * Eliminar calificación
+   * Eliminar calificación (solo Control Escolar)
    */
   async eliminarCalificacion(id: number): Promise<ApiResponse> {
-    const response = await api.delete<ApiResponse>(`/calificaciones/${id}`);
+    const response = await api.delete<ApiResponse>(`/controlescolar/calificaciones/${id}`);
     return response.data;
   }
 };

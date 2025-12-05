@@ -1,6 +1,6 @@
 
-import api from './api.ts';
-import type { Alumno, ApiResponse, PaginatedResponse } from '../types';
+import api from './api';
+import type { Alumno, ApiResponse, PaginatedResponse } from '../types/index';
 
 interface FiltrosAlumno {
   grupo?: string;

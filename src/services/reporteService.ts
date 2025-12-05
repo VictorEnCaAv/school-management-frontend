@@ -1,5 +1,5 @@
-import api from './api.ts';
-import type { ApiResponse, ReportePromedios, ReporteAlumno } from '../types';
+import api from './api';
+import type { ApiResponse, ReportePromedios, ReporteAlumno } from '../types/';
 
 interface FiltrosReporte {
   alumno_id?: number;
@@ -13,7 +13,7 @@ export const reporteService = {
    */
   async obtenerReporteGlobal(filtros?: FiltrosReporte): Promise<ApiResponse<ReportePromedios>> {
     const params = new URLSearchParams();
-     
+    
     if (filtros) {
       Object.entries(filtros).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {

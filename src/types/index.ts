@@ -76,52 +76,44 @@ export interface ApiResponse<T = any> {
   errors?: any[];
 }
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface PaginatedResponse<T> {
   success: boolean;
-  data: {
-    items: T[];
-    pagination: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
-  };
+  data: T[];
+  pagination: PaginationMeta;
 }
 
 // Reportes
-export interface EstadisticasMateria {
-  promedio: string;
-  maxima: string;
-  minima: string;
-  total: number;
-  aprobados: number;
-  reprobados: number;
-  porcentaje_aprobacion: string;
+export interface ReportePromedios {
+  promedios_por_alumno?: Array<{
+    alumno: Alumno;
+    promedio: number;
+    total_materias: number;
+  }>;
+  promedios_por_materia?: Array<{
+    materia: Materia;
+    promedio: number;
+    total_alumnos: number;
+  }>;
+  promedio_general?: number;
+  total_alumnos?: number;
+  total_materias?: number;
+  total_calificaciones?: number;
 }
 
 export interface ReporteAlumno {
   alumno: Alumno;
+  calificaciones: Calificacion[];
   estadisticas: {
-    promedio_general: string;
-    total_calificaciones: number;
+    promedio: number;
+    total_materias: number;
     materias_aprobadas: number;
     materias_reprobadas: number;
   };
-  calificaciones: Calificacion[];
-}
-
-export interface ReporteGeneral {
-  ciclo_escolar: string;
-  resumen: {
-    total_alumnos: number;
-    total_maestros: number;
-    total_materias: number;
-    total_calificaciones: number;
-    promedio_general: string;
-  };
-  distribucion_por_grado: Array<{
-    grado: number;
-    total: number;
-  }>;
 }
