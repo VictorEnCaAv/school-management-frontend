@@ -1,467 +1,241 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Table, Card, Row, Col, Button, Tag, Space, Modal, message,
-    Statistic, Tooltip, Popconfirm, Input, DatePicker, Select
-} from 'antd';
-import {
-    DeleteOutlined, RestOutlined, EyeOutlined,
-    ReloadOutlined, FilterOutlined, ExclamationCircleOutlined
-} from '@ant-design/icons';
-import moment from 'moment';
-import { controlEscolarService } from '../../services/controlEscolarService';
-import type { Calificacion, CalificacionesFiltros } from '../../services';
-import LoadingSpinner from '../common/LoadingSpinner';
-import FiltrosCalificaciones from './FiltrosCalificaciones';
-import EliminarCalificacionModal from './EliminarCalificacionModal';
+// src/components/controlEscolar/CalificacionesControlEscolar.tsx
+import React, { useState } from 'react';
+import { Calificacion } from '../../types';
 
-const { Option } = Select;
-const { RangePicker } = DatePicker;
-const { confirm } = Modal;
+interface CalificacionesControlEscolarProps {
+  calificaciones: Calificacion[];
+  onEliminar: (id: number) => void;
+  onRestaurar: (id: number) => void;
+  cargando?: boolean;
+}
 
-const CalificacionesControlEscolar: React.FC = () => {
-    const [loading, setLoading] = useState(false);
-    const [calificaciones, setCalificaciones] = useState<Calificacion[]>([]);
-    const [pagination, setPagination] = useState({
-        current: 1,
-        pageSize: 10,
-        total: 0,
-    });
-    const [filters, setFilters] = useState<CalificacionesFiltros>({
-        periodo: '',
-        incluirEliminadas: false,
-    });
-    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [selectedCalificacion, setSelectedCalificacion] = useState<Calificacion | null>(null);
-    const [estadisticas, setEstadisticas] = useState({
-        total: 0,
-        activas: 0,
-        eliminadas: 0,
-        promedio: 0,
-    });
+export const CalificacionesControlEscolar: React.FC<CalificacionesControlEscolarProps> = ({
+  calificaciones,
+  onEliminar,
+  onRestaurar,
+  cargando = false,
+}) => {
+  const [calificacionSeleccionada, setCalificacionSeleccionada] = useState<number | null>(null);
+  const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false);
+  const [motivo, setMotivo] = useState('');
 
-    // Cargar calificaciones
-    const fetchCalificaciones = useCallback(async (page = 1) => {
-        setLoading(true);
-        try {
-            const params: CalificacionesFiltros = {
-                pagina: page,
-                limite: pagination.pageSize,
-                ...filters,
-            };
+  const handleEliminarClick = (id: number) => {
+    setCalificacionSeleccionada(id);
+    setMostrarModalEliminar(true);
+  };
 
-            const response = await controlEscolarService.obtenerCalificaciones(params);
-            
-            if (response.success) {
-                setCalificaciones(response.data);
-                
-                if (response.paginacion) {
-                    setPagination({
-                        ...pagination,
-                        current: response.paginacion.pagina,
-                        total: response.paginacion.total,
-                    });
-                }
+  const handleConfirmarEliminar = () => {
+    if (calificacionSeleccionada) {
+      onEliminar(calificacionSeleccionada);
+      setMostrarModalEliminar(false);
+      setCalificacionSeleccionada(null);
+      setMotivo('');
+    }
+  };
 
-                // Calcular estadísticas simples
-                const activas = response.data.filter(c => !c.deleted_at).length;
-                const eliminadas = response.data.filter(c => c.deleted_at).length;
-                const notasActivas = response.data.filter(c => !c.deleted_at).map(c => c.nota);
-                
-                // CORRECCIÓN: Asegurar que promedio sea number
-                let promedioCalculado = 0;
-                if (notasActivas.length > 0) {
-                    const suma = notasActivas.reduce((a, b) => a + b, 0);
-                    promedioCalculado = parseFloat((suma / notasActivas.length).toFixed(2));
-                }
+  const handleCancelar = () => {
+    setMostrarModalEliminar(false);
+    setCalificacionSeleccionada(null);
+    setMotivo('');
+  };
 
-                setEstadisticas({
-                    total: response.data.length,
-                    activas,
-                    eliminadas,
-                    promedio: promedioCalculado, // Aquí ya es number
-                });
-            }
-        } catch (error) {
-            console.error('Error al cargar calificaciones:', error);
-            message.error('Error al cargar las calificaciones');
-        } finally {
-            setLoading(false);
-        }
-    }, [filters, pagination.pageSize]);
-
-    // Cargar datos iniciales
-    useEffect(() => {
-        fetchCalificaciones();
-    }, [fetchCalificaciones]);
-
-    // Manejar cambio de página
-    const handleTableChange = (newPagination: any) => {
-        fetchCalificaciones(newPagination.current);
-    };
-
-    // Manejar eliminación
-    const handleDelete = async (id: number, motivo?: string) => {
-        try {
-            const response = await controlEscolarService.eliminarCalificacion(id, motivo);
-            if (response.success) {
-                message.success(response.message);
-                fetchCalificaciones(pagination.current);
-                setModalVisible(false);
-            } else {
-                message.error(response.message || 'Error al eliminar calificación');
-            }
-        } catch (error) {
-            console.error('Error al eliminar:', error);
-            message.error('Error al eliminar calificación');
-        }
-    };
-
-    // Manejar restauración
-    const handleRestore = async (id: number) => {
-        try {
-            const response = await controlEscolarService.restaurarCalificacion(id);
-            if (response.success) {
-                message.success(response.message);
-                fetchCalificaciones(pagination.current);
-            } else {
-                message.error(response.message || 'Error al restaurar calificación');
-            }
-        } catch (error) {
-            console.error('Error al restaurar:', error);
-            message.error('Error al restaurar calificación');
-        }
-    };
-
-    // Confirmar eliminación múltiple
-    const confirmBulkDelete = () => {
-        if (selectedRowKeys.length === 0) {
-            message.warning('Selecciona al menos una calificación');
-            return;
-        }
-
-        confirm({
-            title: `¿Eliminar ${selectedRowKeys.length} calificación(es)?`,
-            icon: <ExclamationCircleOutlined />,
-            content: 'Esta acción marca las calificaciones como eliminadas (soft delete). Pueden restaurarse después.',
-            okText: 'Eliminar',
-            okType: 'danger',
-            cancelText: 'Cancelar',
-            onOk: async () => {
-                try {
-                    for (const id of selectedRowKeys) {
-                        await controlEscolarService.eliminarCalificacion(
-                            Number(id), 
-                            'Eliminación masiva'
-                        );
-                    }
-                    message.success(`${selectedRowKeys.length} calificaciones eliminadas`);
-                    setSelectedRowKeys([]);
-                    fetchCalificaciones(pagination.current);
-                } catch (error) {
-                    message.error('Error en la eliminación masiva');
-                }
-            },
-        });
-    };
-
-    // Columnas de la tabla
-    const columns = [
-        {
-            title: 'ID',
-            dataIndex: 'id',
-            key: 'id',
-            width: 80,
-            sorter: (a: Calificacion, b: Calificacion) => a.id - b.id,
-        },
-        {
-            title: 'Alumno',
-            key: 'alumno',
-            render: (record: Calificacion) => (
-                <div>
-                    <div><strong>{record.alumno?.nombre} {record.alumno?.apellidos}</strong></div>
-                    <small style={{ color: '#666' }}>Matrícula: {record.alumno?.matricula}</small>
-                </div>
-            ),
-        },
-        {
-            title: 'Materia',
-            key: 'materia',
-            render: (record: Calificacion) => (
-                <div>
-                    <div>{record.asignacion?.materia?.nombre}</div>
-                    <small style={{ color: '#666' }}>Código: {record.asignacion?.materia?.codigo}</small>
-                </div>
-            ),
-        },
-        {
-            title: 'Maestro',
-            key: 'maestro',
-            render: (record: Calificacion) => (
-                <div>
-                    <div>{record.asignacion?.maestro?.nombre} {record.asignacion?.maestro?.apellidos}</div>
-                    <small style={{ color: '#666' }}>{record.asignacion?.maestro?.email}</small>
-                </div>
-            ),
-        },
-        {
-            title: 'Nota',
-            dataIndex: 'nota',
-            key: 'nota',
-            width: 100,
-            render: (nota: number) => (
-                <Tag color={nota >= 70 ? 'green' : nota >= 60 ? 'orange' : 'red'}>
-                    {nota.toFixed(1)}
-                </Tag>
-            ),
-            sorter: (a: Calificacion, b: Calificacion) => a.nota - b.nota,
-        },
-        {
-            title: 'Periodo',
-            dataIndex: 'periodo',
-            key: 'periodo',
-            width: 120,
-        },
-        {
-            title: 'Fecha',
-            key: 'fecha',
-            render: (record: Calificacion) => 
-                record.fecha_evaluacion 
-                    ? moment(record.fecha_evaluacion).format('DD/MM/YYYY')
-                    : 'N/A',
-            width: 120,
-        },
-        {
-            title: 'Estado',
-            key: 'estado',
-            width: 120,
-            render: (record: Calificacion) => (
-                record.deleted_at ? (
-                    <Tag color="red" icon={<DeleteOutlined />}>
-                        Eliminada
-                    </Tag>
-                ) : (
-                    <Tag color="green">Activa</Tag>
-                )
-            ),
-        },
-        {
-            title: 'Acciones',
-            key: 'acciones',
-            width: 180,
-            render: (record: Calificacion) => (
-                <Space size="small">
-                    <Tooltip title="Ver detalles">
-                        <Button
-                            type="link"
-                            icon={<EyeOutlined />}
-                            onClick={() => setSelectedCalificacion(record)}
-                        />
-                    </Tooltip>
-
-                    {record.deleted_at ? (
-                        <Popconfirm
-                            title="¿Restaurar esta calificación?"
-                            description="La calificación volverá a estar activa en el sistema."
-                            onConfirm={() => handleRestore(record.id)}
-                            okText="Sí, restaurar"
-                            cancelText="Cancelar"
-                        >
-                            <Tooltip title="Restaurar">
-                                <Button
-                                    type="primary"
-                                    ghost
-                                    icon={<RestOutlined />}
-                                />
-                            </Tooltip>
-                        </Popconfirm>
-                    ) : (
-                        <Tooltip title="Eliminar">
-                            <Button
-                                type="link"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => {
-                                    setSelectedCalificacion(record);
-                                    setModalVisible(true);
-                                }}
-                            />
-                        </Tooltip>
-                    )}
-                </Space>
-            ),
-        },
-    ];
-
-    // Row selection configuration
-    const rowSelection = {
-        selectedRowKeys,
-        onChange: (selectedKeys: React.Key[]) => {
-            setSelectedRowKeys(selectedKeys);
-        },
-        getCheckboxProps: (record: Calificacion) => ({
-            disabled: !!record.deleted_at, // No seleccionar eliminadas
-        }),
-    };
-
+  if (cargando) {
     return (
-        <div style={{ padding: '24px' }}>
-            <Card title="Gestión de Calificaciones - Control Escolar" style={{ marginBottom: 24 }}>
-                {/* Estadísticas */}
-                <Row gutter={16} style={{ marginBottom: 24 }}>
-                    <Col span={6}>
-                        <Card size="small">
-                            <Statistic
-                                title="Total Calificaciones"
-                                value={estadisticas.total}
-                                prefix={<ReloadOutlined />}
-                            />
-                        </Card>
-                    </Col>
-                    <Col span={6}>
-                        <Card size="small">
-                            <Statistic
-                                title="Activas"
-                                value={estadisticas.activas}
-                                valueStyle={{ color: '#3f8600' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col span={6}>
-                        <Card size="small">
-                            <Statistic
-                                title="Eliminadas"
-                                value={estadisticas.eliminadas}
-                                valueStyle={{ color: '#cf1322' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col span={6}>
-                        <Card size="small">
-                            <Statistic
-                                title="Promedio General"
-                                value={estadisticas.promedio}
-                                suffix="/100"
-                                precision={2}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-
-                {/* Filtros */}
-                <FiltrosCalificaciones
-                    filters={filters}
-                    onFilterChange={(newFilters) => {
-                        setFilters(newFilters);
-                        setPagination({ ...pagination, current: 1 });
-                    }}
-                />
-
-                {/* Acciones masivas */}
-                {selectedRowKeys.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                        <Space>
-                            <span>
-                                Seleccionadas: <strong>{selectedRowKeys.length}</strong> calificaciones
-                            </span>
-                            <Button
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={confirmBulkDelete}
-                            >
-                                Eliminar seleccionadas
-                            </Button>
-                            <Button onClick={() => setSelectedRowKeys([])}>
-                                Limpiar selección
-                            </Button>
-                        </Space>
-                    </div>
-                )}
-
-                {/* Tabla de calificaciones */}
-                <Table
-                    columns={columns}
-                    dataSource={calificaciones}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={pagination}
-                    onChange={handleTableChange}
-                    rowSelection={rowSelection}
-                    scroll={{ x: 1300 }}
-                    locale={{
-                        emptyText: 'No hay calificaciones para mostrar',
-                    }}
-                />
-            </Card>
-
-            {/* Modal para eliminar calificación individual */}
-            {selectedCalificacion && (
-                <EliminarCalificacionModal
-                    visible={modalVisible}
-                    calificacion={selectedCalificacion}
-                    onCancel={() => setModalVisible(false)}
-                    onConfirm={handleDelete}
-                />
-            )}
-
-            {/* Modal para ver detalles */}
-            {selectedCalificacion && !modalVisible && (
-                <Modal
-                    title="Detalles de Calificación"
-                    open={!!selectedCalificacion}
-                    onCancel={() => setSelectedCalificacion(null)}
-                    footer={[
-                        <Button key="close" onClick={() => setSelectedCalificacion(null)}>
-                            Cerrar
-                        </Button>,
-                    ]}
-                    width={700}
-                >
-                    <Card bordered={false}>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <h4>Información del Alumno</h4>
-                                <p><strong>Nombre:</strong> {selectedCalificacion.alumno?.nombre} {selectedCalificacion.alumno?.apellidos}</p>
-                                <p><strong>Matrícula:</strong> {selectedCalificacion.alumno?.matricula}</p>
-                                <p><strong>Grupo:</strong> {selectedCalificacion.asignacion?.grupo?.nombre}</p>
-                            </Col>
-                            <Col span={12}>
-                                <h4>Información Académica</h4>
-                                <p><strong>Materia:</strong> {selectedCalificacion.asignacion?.materia?.nombre}</p>
-                                <p><strong>Código:</strong> {selectedCalificacion.asignacion?.materia?.codigo}</p>
-                                <p><strong>Maestro:</strong> {selectedCalificacion.asignacion?.maestro?.nombre}</p>
-                            </Col>
-                        </Row>
-                        <Row gutter={16} style={{ marginTop: 16 }}>
-                            <Col span={8}>
-                                <p><strong>Nota:</strong> <Tag color="blue">{selectedCalificacion.nota}</Tag></p>
-                            </Col>
-                            <Col span={8}>
-                                <p><strong>Periodo:</strong> {selectedCalificacion.periodo}</p>
-                            </Col>
-                            <Col span={8}>
-                                <p><strong>Fecha:</strong> {selectedCalificacion.fecha_evaluacion ? moment(selectedCalificacion.fecha_evaluacion).format('DD/MM/YYYY') : 'N/A'}</p>
-                            </Col>
-                        </Row>
-                        {selectedCalificacion.observaciones && (
-                            <div style={{ marginTop: 16 }}>
-                                <h4>Observaciones</h4>
-                                <p>{selectedCalificacion.observaciones}</p>
-                            </div>
-                        )}
-                        {selectedCalificacion.deleted_at && (
-                            <div style={{ marginTop: 16, padding: 16, background: '#fff2f0', borderRadius: 6 }}>
-                                <h4 style={{ color: '#cf1322' }}>Información de Eliminación</h4>
-                                <p><strong>Eliminada por:</strong> {selectedCalificacion.eliminadoPor?.nombre || 'N/A'}</p>
-                                <p><strong>Fecha eliminación:</strong> {moment(selectedCalificacion.deleted_at).format('DD/MM/YYYY HH:mm')}</p>
-                                <p><strong>Motivo:</strong> {selectedCalificacion.delete_reason || 'Sin motivo especificado'}</p>
-                            </div>
-                        )}
-                    </Card>
-                </Modal>
-            )}
+      <div className="card">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Cargando calificaciones...</span>
         </div>
+      </div>
     );
-};
+  }
 
-export default CalificacionesControlEscolar;
+  if (calificaciones.length === 0) {
+    return (
+      <div className="card">
+        <div className="text-center py-12">
+          <span className="text-6xl mb-4 block">📋</span>
+          <p className="text-gray-600 text-lg">
+            No se encontraron calificaciones con los filtros aplicados
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  ID
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Alumno
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Materia
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Maestro
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Nota
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Periodo
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Estado
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {calificaciones.map((calif) => {
+                const estaEliminada = !!calif.deleted_at;
+                
+                return (
+                  <tr
+                    key={calif.id}
+                    className={`border-b border-gray-100 hover:bg-gray-50 ${
+                      estaEliminada ? 'bg-red-50' : ''
+                    }`}
+                  >
+                    <td className="py-3 px-4 text-gray-600">
+                      #{calif.id}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium text-gray-800">
+                          {calif.alumno?.nombre} {calif.alumno?.apellidos}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {calif.alumno?.matricula}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium text-gray-800">
+                          {calif.asignacion?.materia?.nombre}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {calif.asignacion?.grupo?.nombre}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <p className="text-gray-800">
+                        {calif.asignacion?.maestro?.nombre} {calif.asignacion?.maestro?.apellidos}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {calif.asignacion?.maestro?.email}
+                      </p>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full font-semibold ${
+                          calif.nota >= 70
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {calif.nota}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center text-gray-600">
+                      {calif.periodo}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {estaEliminada ? (
+                        <div>
+                          <span className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                            🗑️ Eliminada
+                          </span>
+                          {calif.delete_reason && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {calif.delete_reason}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                          ✅ Activa
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {estaEliminada ? (
+                        <button
+                          onClick={() => onRestaurar(calif.id)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          ♻️ Restaurar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleEliminarClick(calif.id)}
+                          className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal de confirmación */}
+      {mostrarModalEliminar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              ⚠️ Confirmar Eliminación
+            </h3>
+            <p className="text-gray-600 mb-4">
+              ¿Estás seguro de que deseas eliminar esta calificación? Esta acción se puede revertir posteriormente.
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Motivo de eliminación (opcional)
+              </label>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                className="input-field"
+                rows={3}
+                placeholder="Ej: Calificación duplicada, error de captura..."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmarEliminar}
+                className="flex-1 btn-primary bg-red-600 hover:bg-red-700"
+              >
+                Sí, eliminar
+              </button>
+              <button
+                onClick={handleCancelar}
+                className="flex-1 btn-secondary"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

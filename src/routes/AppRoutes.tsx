@@ -1,74 +1,99 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+// src/routes/AppRoutes.tsx
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { PrivateRoute } from './PrivateRoute';
 
-// Pages
+// Páginas públicas
 import Login from '../pages/Login';
+
+// Dashboard (único, se adapta según el rol)
 import Dashboard from '../pages/Dashboard';
+
+// Páginas de maestro
 import CalificacionesPage from '../pages/maestro/CalificacionesPage';
+
+// Páginas de control escolar
 import ReportesPage from '../pages/admin/ReportesPage';
+import SupervisionPage from '../pages/admin/SupervisionPage';
+
+// Componente de ruta protegida
+const PrivateRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) => {
+  const { isAuthenticated, usuario } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole && usuario?.rol !== requiredRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 export const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Routes>
-      {/* Ruta pública */}
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
-      />
+    <BrowserRouter>
+      <Routes>
+        {/* Ruta pública */}
+        <Route 
+          path="/login" 
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Login />
+            )
+          } 
+        />
 
-      {/* Rutas protegidas */}
-      <Route
-        path="/dashboard"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
+        {/* Dashboard según rol */}
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
 
-      {/* Rutas del Maestro */}
-      <Route
-        path="/maestro/calificaciones"
-        element={
-          <PrivateRoute requiredRole="MAESTRO">
-            <CalificacionesPage />
-          </PrivateRoute>
-        }
-      />
+        {/* Rutas de MAESTRO */}
+        <Route
+          path="/maestro/calificaciones"
+          element={
+            <PrivateRoute requiredRole="MAESTRO">
+              <CalificacionesPage />
+            </PrivateRoute>
+          }
+        />
 
-      {/* Rutas del Control Escolar */}
-      <Route
-        path="/admin/reportes"
-        element={
-          <PrivateRoute requiredRole="CONTROL_ESCOLAR">
-            <ReportesPage />
-          </PrivateRoute>
-        }
-      />
+        {/* Rutas de CONTROL_ESCOLAR */}
+        <Route
+          path="/control-escolar/reportes"
+          element={
+            <PrivateRoute requiredRole="CONTROL_ESCOLAR">
+              <ReportesPage />
+            </PrivateRoute>
+          }
+        />
 
-      {/* Ruta por defecto */}
-      <Route 
-        path="/" 
-        element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
-        } 
-      />
+        {/* RUTA: Supervisión de calificaciones */}
+        <Route
+          path="/control-escolar/supervision"
+          element={
+            <PrivateRoute requiredRole="CONTROL_ESCOLAR">
+              <SupervisionPage />
+            </PrivateRoute>
+          }
+        />
 
-      {/* 404 - Página no encontrada */}
-      <Route 
-        path="*" 
-        element={
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
-              <p className="text-gray-600">Página no encontrada</p>
-            </div>
-          </div>
-        } 
-      />
-    </Routes>
+        {/* Ruta por defecto */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* 404 */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 };

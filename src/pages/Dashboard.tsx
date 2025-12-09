@@ -81,7 +81,7 @@ const Dashboard = () => {
           {isControlEscolar && (
             <>
               <div 
-                onClick={() => navigate('/admin/reportes')}
+                onClick={() => navigate('/admin/ReportesPage')}
                 className="card hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-blue-500"
               >
                 <div className="flex items-center gap-4">
