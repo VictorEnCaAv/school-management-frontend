@@ -1,68 +1,87 @@
+// src/services/calificacionService.ts (ACTUALIZADO)
 import api from './api';
-import type { Calificacion, CalificacionForm, ApiResponse, PaginatedResponse } from '../types/index';
 
-interface FiltrosCalificacion {
-  materia_id?: number;
-  alumno_id?: number;
-  periodo?: string;
-  ciclo_escolar?: string;
-  page?: number;
-  limit?: number;
+export interface CalificacionInput {
+  asignacion_id: number;
+  alumno_id: number;
+  nota: number;
+  periodo: string;
+  observaciones?: string;
+}
+
+export interface Calificacion {
+  id: number;
+  asignacion_id: number;
+  alumno_id: number;
+  nota: number;
+  periodo: string;
+  fecha_evaluacion: string;
+  observaciones?: string;
+  modificada_por?: number;
+  fecha_modificacion?: string;
+  created_at: string;
+  updated_at: string;
+  asignacion: {
+    materia: {
+      nombre: string;
+      codigo: string;
+    };
+    grupo: {
+      nombre: string;
+    };
+    maestro?: {
+      nombre: string;
+      apellidos: string;
+    };
+  };
+  alumno: {
+    id: number;
+    matricula: string;
+    nombre: string;
+    apellidos: string;
+  };
+  modificador?: {
+    nombre: string;
+    apellidos: string;
+  };
 }
 
 export const calificacionService = {
-  /**
-   * Obtener todas las calificaciones con filtros
-   */
-  async obtenerCalificaciones(filtros?: FiltrosCalificacion): Promise<PaginatedResponse<Calificacion>> {
-    const params = new URLSearchParams();
-    
-    if (filtros) {
-      Object.entries(filtros).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
-        }
-      });
-    }
-    
-    const response = await api.get<PaginatedResponse<Calificacion>>(
-      `/maestro/calificaciones?${params.toString()}`
-    );
+  // Maestro
+  async obtenerMisCalificaciones(filtros?: { asignacion_id?: number; periodo?: string }): Promise<Calificacion[]> {
+    const params = new URLSearchParams(filtros as any);
+    const response = await api.get(`/maestro/calificaciones?${params}`);
     return response.data;
   },
 
-  /**
-   * Obtener una calificación por ID
-   */
-  async obtenerCalificacionPorId(id: number): Promise<ApiResponse<Calificacion>> {
-    const response = await api.get<ApiResponse<Calificacion>>(`/maestro/calificaciones/${id}`);
+  async registrarCalificacion(data: CalificacionInput): Promise<Calificacion> {
+    const response = await api.post('/maestro/calificaciones', data);
     return response.data;
   },
 
-  /**
-   * Crear nueva calificación
-   */
-  async crearCalificacion(data: CalificacionForm): Promise<ApiResponse<Calificacion>> {
-    const response = await api.post<ApiResponse<Calificacion>>('/maestro/calificaciones', data);
+  async actualizarCalificacion(id: number, data: { nota: number; observaciones?: string }): Promise<Calificacion> {
+    const response = await api.put(`/maestro/calificaciones/${id}`, data);
     return response.data;
   },
 
-  /**
-   * Actualizar calificación
-   */
-  async actualizarCalificacion(
-    id: number,
-    data: Partial<CalificacionForm>
-  ): Promise<ApiResponse<Calificacion>> {
-    const response = await api.put<ApiResponse<Calificacion>>(`/maestro/calificaciones/${id}`, data);
+  // Control Escolar
+  async obtenerTodasLasCalificaciones(filtros?: {
+    maestro_id?: number;
+    materia_id?: number;
+    grupo_id?: number;
+    periodo?: string;
+  }): Promise<Calificacion[]> {
+    const params = new URLSearchParams(filtros as any);
+    const response = await api.get(`/controlescolar/calificaciones?${params}`);
     return response.data;
   },
 
-  /**
-   * Eliminar calificación (solo Control Escolar)
-   */
-  async eliminarCalificacion(id: number): Promise<ApiResponse> {
-    const response = await api.delete<ApiResponse>(`/controlescolar/calificaciones/${id}`);
+  async modificarCalificacion(id: number, data: { nota: number; observaciones?: string }): Promise<Calificacion> {
+    const response = await api.put(`/controlescolar/calificaciones/${id}`, data);
     return response.data;
+  },
+
+  async eliminarCalificacion(id: number): Promise<void> {
+    await api.delete(`/controlescolar/calificaciones/${id}`);
   }
 };
