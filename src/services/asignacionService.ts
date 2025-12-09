@@ -1,4 +1,3 @@
-// src/services/asignacionService.ts
 import api from './api';
 
 export interface Asignacion {
@@ -20,14 +19,21 @@ export interface Asignacion {
   };
 }
 
+export interface Alumno {
+  id: number;
+  matricula: string;
+  nombre: string;
+  apellidos: string;
+}
+
 export const asignacionService = {
   async obtenerMisAsignaciones(): Promise<Asignacion[]> {
     const response = await api.get('/maestro/asignaciones');
-    return response.data;
+    return response.data.data || response.data;
   },
 
-  async obtenerAlumnosPorAsignacion(asignacionId: number) {
+  async obtenerAlumnosPorAsignacion(asignacionId: number): Promise<{ asignacion: Asignacion; alumnos: Alumno[] }> {
     const response = await api.get(`/maestro/asignaciones/${asignacionId}/alumnos`);
-    return response.data;
+    return response.data.data || response.data;
   }
 };

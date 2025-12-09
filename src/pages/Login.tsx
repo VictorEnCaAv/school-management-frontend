@@ -112,7 +112,7 @@ const Login = () => {
             <div className="space-y-2 text-xs">
               <div className="bg-blue-50 px-3 py-2 rounded">
                 <p className="font-semibold text-blue-800">Maestro:</p>
-                <p className="text-blue-700">maestro1@school.com / maestro123</p>
+                <p className="text-blue-700">carlos.rodriguez@school.com / maestro123</p>
               </div>
               <div className="bg-purple-50 px-3 py-2 rounded">
                 <p className="font-semibold text-purple-800">Control Escolar:</p>

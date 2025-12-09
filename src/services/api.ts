@@ -1,42 +1,36 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-// Crear instancia de axios
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para agregar token a las peticiones
+// Interceptor: Agregar token automáticamente
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  (config) => {
     const token = localStorage.getItem('token');
-    
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
   },
-  (error: AxiosError) => {
+  (error) => {
     return Promise.reject(error);
   }
 );
 
-// Interceptor para manejar respuestas
+// Interceptor: Manejo de errores
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
+  (error) => {
     if (error.response?.status === 401) {
-      // Token inválido o expirado
+      // Redirigir al login si el token es inválido
       localStorage.removeItem('token');
       localStorage.removeItem('usuario');
       window.location.href = '/login';
     }
-    
     return Promise.reject(error);
   }
 );
