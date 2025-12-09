@@ -1,184 +1,239 @@
-import { Layout } from '../../components/layout/Layout';
+// src/pages/maestro/CalificacionesPage.tsx
+import { useState, useEffect } from 'react';
+import { asignacionService, Asignacion } from '@/services/asignacionService';
+import { calificacionService, Calificacion } from '@/services/calificacionService';
+import { Button } from '@/components/common/Button';
+import { Modal } from '@/components/common/Modal';
+import { RegistrarCalificacionForm } from '@/components/forms/RegistrarCalificacionForm';
+import { EditarCalificacionModal } from '@/components/modals/EditarCalificacionModal';
 
-const CalificacionesPage = () => {
+export function CalificacionesPage() {
+  const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
+  const [asignacionSeleccionada, setAsignacionSeleccionada] = useState<number | null>(null);
+  const [calificaciones, setCalificaciones] = useState<Calificacion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalRegistrar, setModalRegistrar] = useState(false);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [calificacionEditar, setCalificacionEditar] = useState<Calificacion | null>(null);
+
+  useEffect(() => {
+    cargarAsignaciones();
+  }, []);
+
+  useEffect(() => {
+    if (asignacionSeleccionada) {
+      cargarCalificaciones();
+    }
+  }, [asignacionSeleccionada]);
+
+  const cargarAsignaciones = async () => {
+    try {
+      const data = await asignacionService.obtenerMisAsignaciones();
+      setAsignaciones(data);
+      if (data.length > 0) {
+        setAsignacionSeleccionada(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error al cargar asignaciones:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarCalificaciones = async () => {
+    try {
+      setLoading(true);
+      const data = await calificacionService.obtenerMisCalificaciones({
+        asignacion_id: asignacionSeleccionada!
+      });
+      setCalificaciones(data);
+    } catch (error) {
+      console.error('Error al cargar calificaciones:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegistrarCalificacion = async (data: any) => {
+    try {
+      const nueva = await calificacionService.registrarCalificacion({
+        ...data,
+        asignacion_id: asignacionSeleccionada!
+      });
+      setCalificaciones(prev => [nueva, ...prev]);
+      setModalRegistrar(false);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Error al registrar calificación');
+    }
+  };
+
+  const handleEditarClick = (calificacion: Calificacion) => {
+    setCalificacionEditar(calificacion);
+    setModalEditar(true);
+  };
+
+  const handleActualizarCalificacion = async (id: number, data: any) => {
+    try {
+      const actualizada = await calificacionService.actualizarCalificacion(id, data);
+      setCalificaciones(prev => 
+        prev.map(c => c.id === id ? actualizada : c)
+      );
+      setModalEditar(false);
+      setCalificacionEditar(null);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Error al actualizar calificación');
+    }
+  };
+
+  const asignacionActual = asignaciones.find(a => a.id === asignacionSeleccionada);
+
+  if (loading && asignaciones.length === 0) {
+    return <div className="p-6">Cargando...</div>;
+  }
+
   return (
-    <Layout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Gestión de Calificaciones
-            </h1>
-            <p className="text-gray-600">
-              Registra y edita las calificaciones de tus alumnos
-            </p>
-          </div>
-          <button className="btn-primary">
-            + Nueva Calificación
-          </button>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-4">Mis Calificaciones</h1>
+
+        {/* Selector de Materia/Grupo */}
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Seleccionar Materia y Grupo
+          </label>
+          <select
+            value={asignacionSeleccionada || ''}
+            onChange={(e) => setAsignacionSeleccionada(Number(e.target.value))}
+            className="w-full md:w-1/2 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            {asignaciones.map(asig => (
+              <option key={asig.id} value={asig.id}>
+                {asig.materia.nombre} - {asig.grupo.nombre}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Filtros */}
-        <div className="card">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Materia
-              </label>
-              <select className="input-field">
-                <option value="">Todas las materias</option>
-                <option value="1">Matemáticas</option>
-                <option value="2">Español</option>
-                <option value="3">Ciencias</option>
-              </select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Grupo
-              </label>
-              <select className="input-field">
-                <option value="">Todos los grupos</option>
-                <option value="1A">1° A</option>
-                <option value="1B">1° B</option>
-                <option value="2A">2° A</option>
-              </select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Buscar alumno
-              </label>
-              <input
-                type="text"
-                placeholder="Nombre o matrícula..."
-                className="input-field"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Tabla de calificaciones */}
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    Alumno
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    Matrícula
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    Materia
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    Grupo
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                    Nota
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                    Estado
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Ejemplo de fila */}
-                <tr className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-800">Juan Pérez García</div>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">2024001</td>
-                  <td className="py-3 px-4 text-gray-600">Matemáticas</td>
-                  <td className="py-3 px-4 text-gray-600">1° A</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
-                      85.5
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
-                      Aprobado
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                        Editar
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-800 font-medium text-sm">
-                        Ver
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* Otra fila de ejemplo */}
-                <tr className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-800">María López Hernández</div>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">2024002</td>
-                  <td className="py-3 px-4 text-gray-600">Matemáticas</td>
-                  <td className="py-3 px-4 text-gray-600">1° A</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-full font-semibold">
-                      55.0
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
-                      Reprobado
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                        Editar
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-800 font-medium text-sm">
-                        Ver
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginación */}
-          <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+        {asignacionActual && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <p className="text-sm text-gray-600">
-              Mostrando 1-10 de 45 calificaciones
+              <strong>Materia:</strong> {asignacionActual.materia.nombre} ({asignacionActual.materia.codigo})
             </p>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
-                Anterior
-              </button>
-              <button className="px-3 py-1 bg-blue-600 text-white rounded">
-                1
-              </button>
-              <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
-                2
-              </button>
-              <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
-                3
-              </button>
-              <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
-                Siguiente
-              </button>
-            </div>
+            <p className="text-sm text-gray-600">
+              <strong>Grupo:</strong> {asignacionActual.grupo.nombre}
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>Ciclo:</strong> {asignacionActual.grupo.ciclo_escolar}
+            </p>
           </div>
-        </div>
-      </div>
-    </Layout>
-  );
-};
+        )}
 
-export default CalificacionesPage;
+        <Button onClick={() => setModalRegistrar(true)} variant="primary">
+          + Registrar Calificación
+        </Button>
+      </div>
+
+      {/* Tabla de Calificaciones */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Matrícula
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Alumno
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Periodo
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Nota
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Observaciones
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Fecha
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {calificaciones.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  No hay calificaciones registradas
+                </td>
+              </tr>
+            ) : (
+              calificaciones.map(cal => (
+                <tr key={cal.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {cal.alumno.matricula}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {cal.alumno.nombre} {cal.alumno.apellidos}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {cal.periodo}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      cal.nota >= 70 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {cal.nota}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {cal.observaciones || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(cal.fecha_evaluacion).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => handleEditarClick(cal)}
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal Registrar */}
+      {modalRegistrar && asignacionSeleccionada && (
+        <RegistrarCalificacionModal
+          isOpen={modalRegistrar}
+          onClose={() => setModalRegistrar(false)}
+          asignacionId={asignacionSeleccionada}
+          onSubmit={handleRegistrarCalificacion}
+        />
+      )}
+
+      {/* Modal Editar */}
+      {modalEditar && calificacionEditar && (
+        <EditarCalificacionModal
+          isOpen={modalEditar}
+          onClose={() => {
+            setModalEditar(false);
+            setCalificacionEditar(null);
+          }}
+          calificacion={calificacionEditar}
+          onSubmit={handleActualizarCalificacion}
+        />
+      )}
+    </div>
+  );
+}
